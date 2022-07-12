@@ -316,7 +316,7 @@ CATV Output Power(dBmV): -
                         self.send_error(f'ONT not found')
                             
                 elif args[0] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[1]):
-                    setcontext('', args[1].split('/'))
+                    setcontext('aimmed', args[1].split('/'))
                     self.places.append(f"deploy-profile-rule-{'-'.join(context['aimmed'])}")
                 elif context["aimmed"] and (context['serial'] and data == 'active'):
                     slot, pon, ont = context["aimmed"]
