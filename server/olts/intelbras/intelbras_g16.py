@@ -266,7 +266,7 @@ CATV Output Power(dBmV): -
         elif cmds[0] == 'deploy':
             self.__deploy(cmds[1:])
         elif cmds[0] == 'ont':
-            self.__ont(cmds[1:])
+            self.__ont(cmds)
         else:
             raise Exception('Comando não encontrado.')
         
@@ -331,7 +331,7 @@ CATV Output Power(dBmV): -
                                 self.send_error(f'ONT not found')
                     elif aimmed and re.match(r'^permit sn string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
                         slot,pon,onu = aimmed
-                        serial = data[21:34].strip()
+                        serial = data.strip().split()[3]
                         try:
                             _onu = list(filter(lambda x: x['auth'] and (x['onu'] == int(
                                 onu) or x['id'] == serial), ONUS['slot'][slot]['pon'][pon]))[0]

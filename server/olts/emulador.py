@@ -53,7 +53,7 @@ class Emulador(Thread):
                     logged_in = self.__login__()
                 if logged_in:
                     for d in self.receve_data().split('\n'):
-                        self.receive(d)
+                        self.receive(d.strip())
 
             except BlockingIOError:
                 pass
