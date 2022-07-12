@@ -52,6 +52,9 @@ class Break(Exception):
     pass
 
 
+class Clear(Exception):
+    pass
+
 class Manager(Emulador):
 
     def __login__(self):
@@ -284,12 +287,13 @@ CATV Output Power(dBmV): -
                 data = data.strip()
                 if data == 'exit':
                     if self.places and self.places[-1] == 'deploy-profile-rule':
+                        self.places.pop()
                         raise Break()
                     elif not self.places[-1].startswith('deploy-profile-rule'):
                         raise Break()
                     else:
-                        aimmed = []
                         self.places.pop()
+                        raise Clear()
                 args = data.split()
                 if args[0] == 'show':
                     self.show(data)
@@ -356,6 +360,9 @@ CATV Output Power(dBmV): -
                     except Break:
                         do_exit = True
                         break
+                    except Clear as e:
+                        aimmed = []
+                        aimmedonu = None
                     except Exception as e:
                         traceback.print_exc()
                         self.send_error(str(e))
