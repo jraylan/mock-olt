@@ -346,6 +346,7 @@ CATV Output Power(dBmV): -
                     except:
                         set_aimmedonu(serial)
                 else:
+                    print(aimmed, aimmedonu)
                     if args:
                         self.send_error(f'Comando não encontrado: {data}')
 
