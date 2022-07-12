@@ -331,7 +331,7 @@ CATV Output Power(dBmV): -
                                 self.send_error(f'ONT not found')
                     elif aimmed and re.match(r'^permit sn string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
                         slot,pon,onu = aimmed
-                        serial = data[28:41].strip()
+                        serial = data[21:34].strip()
                         try:
                             _onu = list(filter(lambda x: x['auth'] and (x['onu'] == int(
                                 onu) or x['id'] == serial), ONUS['slot'][slot]['pon'][pon]))[0]
@@ -339,7 +339,7 @@ CATV Output Power(dBmV): -
                                 self.send_error(f'ONU already activated')
                             self.send_error(f'Index already used')
                         except:
-                            aimmedonu = data[28:41]
+                            aimmedonu = serial
                     else:
                         if args:
                             self.send_error(f'Comando não encontrado: {data}')
