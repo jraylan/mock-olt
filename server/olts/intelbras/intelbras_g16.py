@@ -281,7 +281,7 @@ CATV Output Power(dBmV): -
 
     def __deploy_profile_rule(self):
         try:
-            def handle(data, aimmed, aimmedonu):
+            def handle(data, aimmed, aimmedonu, set_aimmed, set_aimmedonu):
                 if isinstance(data, bytes):
                     data = data.decode()
                 data = data.strip()
@@ -315,7 +315,7 @@ CATV Output Power(dBmV): -
                         self.send_error(f'ONT not found')
                             
                 elif args[0] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[1]):
-                    aimmed = args[1].split('/')
+                    set_aimmed(args[1].split('/'))                    
                     self.places.append(f"deploy-profile-rule-{'-'.join(aimmed)}")
                 elif aimmed and (aimmedonu and data == 'active'):
                     slot, pon, ont = aimmed
@@ -344,7 +344,7 @@ CATV Output Power(dBmV): -
                             self.send_error(f'ONU already activated')
                         self.send_error(f'Index already used')
                     except:
-                        aimmedonu = serial
+                        set_aimmedonu(serial)
                 else:
                     if args:
                         self.send_error(f'Comando não encontrado: {data}')
@@ -352,11 +352,20 @@ CATV Output Power(dBmV): -
             data = self.request(self.__name)
             aimmed = []
             aimmedonu = None
+
+            def set_aimmed(val):
+                global aimmed
+                aimmed = val
+
+            def set_aimmedonu(val):
+                global aimmedonu
+                aimmedonu = val
+
             while self.running:
                 do_exit = False
                 for d in re.split(r'\r?\n|\n|\r', data.strip()):
                     try:
-                        handle(d, aimmed, aimmedonu)
+                        handle(d, aimmed, aimmedonu, set_aimmed, set_aimmedonu)
                     except Break:
                         do_exit = True
                         break
