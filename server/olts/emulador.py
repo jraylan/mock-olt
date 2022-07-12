@@ -1,5 +1,6 @@
 
 import socket
+import re
 from threading import Thread
 
 
@@ -20,7 +21,9 @@ class Emulador(Thread):
 
     def send(self, message):
         if isinstance(message, str):
-            message = message.encode()
+            message = message.expandtabs().encode()
+        else:
+            message = message.decode().expandtabs().encode()
         self.connection.send(message)
         print(f'sent: {message}')
 
@@ -30,7 +33,6 @@ class Emulador(Thread):
 
     def receve_data(self):
         data = self.connection.recv(2048).decode(errors='ignore')
-        print('Received:', data)
         return data
 
     def close(self):
@@ -50,9 +52,9 @@ class Emulador(Thread):
                 if not logged_in:
                     logged_in = self.__login__()
                 if logged_in:
-                    for d in self.receve_data().split('\n'):
-                        self.receive(d)
-
+                    for d in re.split(r'\r?\n|\n|\r', self.receve_data().strip()):
+                        print('Received:', d)
+                        self.receive(d.strip())
             except BlockingIOError:
                 pass
             except ExitClient:
