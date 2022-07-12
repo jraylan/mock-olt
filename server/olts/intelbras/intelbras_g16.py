@@ -266,7 +266,7 @@ CATV Output Power(dBmV): -
         elif cmds[0] == 'deploy':
             self.__deploy(cmds[1:])
         elif cmds[0] == 'ont':
-            self.__ont(cmds)
+            self.__ont(cmds[1:])
         else:
             raise Exception('Comando não encontrado.')
         
