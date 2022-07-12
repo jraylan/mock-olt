@@ -329,7 +329,7 @@ CATV Output Power(dBmV): -
                                     break
                             if not found:
                                 self.send_error(f'ONT not found')
-                    elif aimmed and re.match(r'^permit sn string string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
+                    elif aimmed and re.match(r'^permit sn string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
                         slot,pon,onu = aimmed
                         serial = data[28:41].strip()
                         try:
