@@ -284,7 +284,7 @@ CATV Output Power(dBmV): -
                     if data == 'exit':
                         if self.places and self.places[-1] == 'deploy-profile-rule':
                             break
-                        elif not self.places.starrtswith('deploy-profile-rule'):
+                        elif not self.places[-1].startswith('deploy-profile-rule'):
                             break;
                         else:
                             aimmed = []
