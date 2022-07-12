@@ -42,7 +42,8 @@ for i in range(1, 17):
             'id': f'TSMX-{2:0>2x}{random.randint(2570, 65535):4x}{1:0>2x}',
             'auth': auth,
             'onu': authed if auth else unauth,
-            'type': random.choice(['110Gb', 'R1v2'])
+            'type': random.choice(['110Gb', 'R1v2']),
+            'name': 'VLAN-1000' if auth else ''
         }
         ONUS['slot']['0']['pon'][str(i)].append(onu)
 
@@ -273,8 +274,8 @@ CATV Output Power(dBmV): -
     def __deploy_profile_rule(self):
         try:
             data = self.request(self.__name)
-            ainmed = []
-            ainmedonu = None
+            aimmed = []
+            aimmedonu = None
             while self.running:
                 try:
                     if isinstance(data, bytes):
@@ -286,12 +287,12 @@ CATV Output Power(dBmV): -
                         elif not self.places.starrtswith('deploy-profile-rule'):
                             break;
                         else:
-                            ainmed = []
+                            aimmed = []
                             self.places.pop()
                     args = data.split()
                     if args[0] == 'show':
                         self.show(data)
-                    elif not ainmed and args[0] == 'delete' and args[1] == 'ain' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[2]):
+                    elif not aimmed and args[0] == 'delete' and args[1] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[2]):
                         slot, pon, ont = args[2].split('/')
                         found = False
                         for onu in ONUS['slot'][slot]['pon'][pon]:
@@ -308,11 +309,11 @@ CATV Output Power(dBmV): -
                         if not found:
                             self.send_error(f'ONT not found')
                                 
-                    elif args[0] == 'ain' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[1]):
-                        ainmed = args[1].split('/')                        
-                        self.places.append(f"deploy-profile-rule-{'-'.join(ainmed)}")
-                    elif ainmed and (ainmedonu and data == 'active'):
-                        slot, pon, ont = ainmed
+                    elif args[0] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[1]):
+                        aimmed = args[1].split('/')
+                        self.places.append(f"deploy-profile-rule-{'-'.join(aimmed)}")
+                    elif aimmed and (aimmedonu and data == 'active'):
+                        slot, pon, ont = aimmed
                         try:
                             list(filter(lambda x: x['auth'] and x['onu'] == int(
                                 ont), ONUS['slot'][slot]['pon'][pon]))[0]
@@ -320,16 +321,16 @@ CATV Output Power(dBmV): -
                         except:
                             found = False
                             for onu in ONUS['slot'][slot]['pon'][pon]:
-                                if onu['id'] == ainmedonu and not onu['auth']:
+                                if onu['id'] == aimmedonu and not onu['auth']:
                                     onu['onu'] = int(ont)
                                     onu['auth'] = True
-                                    self.sendLine(f'ONT {ainmed} activated')
+                                    self.sendLine(f'ONT {aimmed} activated')
                                     found = True
                                     break
                             if not found:
                                 self.send_error(f'ONT not found')
-                    elif ainmed and re.match(r'^permit sn string string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
-                        slot,pon,onu = ainmed
+                    elif aimmed and re.match(r'^permit sn string string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
+                        slot,pon,onu = aimmed
                         serial = data[28:41].strip()
                         try:
                             _onu = list(filter(lambda x: x['auth'] and (x['onu'] == int(
@@ -338,7 +339,7 @@ CATV Output Power(dBmV): -
                                 self.send_error(f'ONU already activated')
                             self.send_error(f'Index already used')
                         except:
-                            ainmedonu = data[28:41]
+                            aimmedonu = data[28:41]
                     else:
                         if args:
                             self.send_error(f'Comando não encontrado: {data}')
