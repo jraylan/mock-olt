@@ -183,7 +183,7 @@ Vendor ID				:   TSMX
 Software Version			:   C01R04V00B10/C01R04V00B10
 Firmware Version			:   S40-100
 Equipment ID				:   AISONTV1
-SN					:   TSMX-1790032e
+SN					:   {onu['id']}
 Password				:   1234567890
 LOID					:   user
 LOID Password				:   password
