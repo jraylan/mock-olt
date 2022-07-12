@@ -47,6 +47,11 @@ for i in range(1, 17):
         }
         ONUS['slot']['0']['pon'][str(i)].append(onu)
 
+
+class Break(Exception):
+    pass
+
+
 class Manager(Emulador):
 
     def __login__(self):
@@ -273,81 +278,92 @@ CATV Output Power(dBmV): -
 
     def __deploy_profile_rule(self):
         try:
-            data = self.request(self.__name)
-            aimmed = []
-            aimmedonu = None
-            while self.running:
-                try:
-                    if isinstance(data, bytes):
-                        data = data.decode()
-                    data = data.strip()
-                    if data == 'exit':
-                        if self.places and self.places[-1] == 'deploy-profile-rule':
+            def handle(data, aimmed, aimmedonu):
+                if isinstance(data, bytes):
+                    data = data.decode()
+                data = data.strip()
+                if data == 'exit':
+                    if self.places and self.places[-1] == 'deploy-profile-rule':
+                        raise Break()
+                    elif not self.places[-1].startswith('deploy-profile-rule'):
+                        raise Break()
+                    else:
+                        aimmed = []
+                        self.places.pop()
+                args = data.split()
+                if args[0] == 'show':
+                    self.show(data)
+                elif not aimmed and args[0] == 'delete' and args[1] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[2]):
+                    slot, pon, ont = args[2].split('/')
+                    found = False
+                    for onu in ONUS['slot'][slot]['pon'][pon]:
+                        if onu['onu'] == int(ont) and onu['auth']:
+                            confirm = self.request("Are you sure to delete the ONT {}? ".format(onu['id']))
+                            if isinstance(confirm, bytes):
+                                confirm = confirm.decode()
+                            confirm = confirm.strip()
+                            if confirm and confirm == 'y':
+                                onu['auth'] = False
+                                self.sendLine(f'ONT {args[2]} deleted')
+                            found = True
                             break
-                        elif not self.places[-1].startswith('deploy-profile-rule'):
-                            break;
-                        else:
-                            aimmed = []
-                            self.places.pop()
-                    args = data.split()
-                    if args[0] == 'show':
-                        self.show(data)
-                    elif not aimmed and args[0] == 'delete' and args[1] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[2]):
-                        slot, pon, ont = args[2].split('/')
+                    if not found:
+                        self.send_error(f'ONT not found')
+                            
+                elif args[0] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[1]):
+                    aimmed = args[1].split('/')
+                    self.places.append(f"deploy-profile-rule-{'-'.join(aimmed)}")
+                elif aimmed and (aimmedonu and data == 'active'):
+                    slot, pon, ont = aimmed
+                    try:
+                        list(filter(lambda x: x['auth'] and x['onu'] == int(
+                            ont), ONUS['slot'][slot]['pon'][pon]))[0]
+                        self.send_error(f'ONU already activated')
+                    except:
                         found = False
                         for onu in ONUS['slot'][slot]['pon'][pon]:
-                            if onu['onu'] == int(ont) and onu['auth']:
-                                confirm = self.request("Are you sure to delete the ONT {}? ".format(onu['id']))
-                                if isinstance(confirm, bytes):
-                                    confirm = confirm.decode()
-                                confirm = confirm.strip()
-                                if confirm and confirm == 'y':
-                                    onu['auth'] = False
-                                    self.sendLine(f'ONT {args[2]} deleted')
+                            if onu['id'] == aimmedonu and not onu['auth']:
+                                onu['onu'] = int(ont)
+                                onu['auth'] = True
+                                self.sendLine(f'ONT {aimmed} activated')
                                 found = True
                                 break
                         if not found:
                             self.send_error(f'ONT not found')
-                                
-                    elif args[0] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[1]):
-                        aimmed = args[1].split('/')
-                        self.places.append(f"deploy-profile-rule-{'-'.join(aimmed)}")
-                    elif aimmed and (aimmedonu and data == 'active'):
-                        slot, pon, ont = aimmed
-                        try:
-                            list(filter(lambda x: x['auth'] and x['onu'] == int(
-                                ont), ONUS['slot'][slot]['pon'][pon]))[0]
+                elif aimmed and re.match(r'^permit sn string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
+                    slot,pon,onu = aimmed
+                    serial = data.strip().split()[3]
+                    try:
+                        _onu = list(filter(lambda x: x['auth'] and (x['onu'] == int(
+                            onu) or x['id'] == serial), ONUS['slot'][slot]['pon'][pon]))[0]
+                        if _onu['id'] == serial:
                             self.send_error(f'ONU already activated')
-                        except:
-                            found = False
-                            for onu in ONUS['slot'][slot]['pon'][pon]:
-                                if onu['id'] == aimmedonu and not onu['auth']:
-                                    onu['onu'] = int(ont)
-                                    onu['auth'] = True
-                                    self.sendLine(f'ONT {aimmed} activated')
-                                    found = True
-                                    break
-                            if not found:
-                                self.send_error(f'ONT not found')
-                    elif aimmed and re.match(r'^permit sn string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
-                        slot,pon,onu = aimmed
-                        serial = data.strip().split()[3]
-                        try:
-                            _onu = list(filter(lambda x: x['auth'] and (x['onu'] == int(
-                                onu) or x['id'] == serial), ONUS['slot'][slot]['pon'][pon]))[0]
-                            if _onu['id'] == serial:
-                                self.send_error(f'ONU already activated')
-                            self.send_error(f'Index already used')
-                        except:
-                            aimmedonu = serial
-                    else:
-                        if args:
-                            self.send_error(f'Comando não encontrado: {data}')
-                except Exception as e:
-                    traceback.print_exc()
-                    self.send_error(str(e))
-                finally:
+                        self.send_error(f'Index already used')
+                    except:
+                        aimmedonu = serial
+                else:
+                    if args:
+                        self.send_error(f'Comando não encontrado: {data}')
+
+            data = self.request(self.__name)
+            aimmed = []
+            aimmedonu = None
+            while self.running:
+                do_exit = False
+                for d in re.split(r'\r?\n|\n|\r', data.strip()):
+                    try:
+                        handle(d, aimmed, aimmedonu)
+                    except Break:
+                        do_exit = True
+                        break
+                    except Exception as e:
+                        traceback.print_exc()
+                        self.send_error(str(e))
+                if do_exit:
+                    break
+                else:
                     data = self.request(self.__name)
+
         except Exception as e:
             traceback.print_exc()
             self.send_error(str(e))
