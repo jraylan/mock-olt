@@ -33,7 +33,6 @@ class Emulador(Thread):
 
     def receve_data(self):
         data = self.connection.recv(2048).decode(errors='ignore')
-        print('Received:', data)
         return data
 
     def close(self):
@@ -54,6 +53,7 @@ class Emulador(Thread):
                     logged_in = self.__login__()
                 if logged_in:
                     for d in re.split(r'\r?\n|\n|\r', self.receve_data().strip()):
+                        print('Received:', d)
                         self.receive(d.strip())
             except BlockingIOError:
                 pass
