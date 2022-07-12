@@ -174,7 +174,7 @@ CATV Output Power(dBmV)	: -
 
         for onu in self.onus['slot'][slot]['pon'][pon]:
             if onu['onu'] == int(ont) and onu['auth']:
-                info = f'''ONT					:   0/{pon}/{onu}
+                info = f'''ONT					:   0/{pon}/{ont}
 Description				:   -
 TYPE					:   -
 Status					:   online
