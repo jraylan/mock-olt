@@ -47,6 +47,14 @@ for i in range(1, 17):
         }
         ONUS['slot']['0']['pon'][str(i)].append(onu)
 
+
+class Break(Exception):
+    pass
+
+
+class Clear(Exception):
+    pass
+
 class Manager(Emulador):
 
     def __login__(self):
@@ -144,13 +152,52 @@ class Manager(Emulador):
 
         for onu in self.onus['slot'][slot]['pon'][pon]:
             if onu['onu'] == int(ont) and onu['auth']:
-                info = f'''Power Feed Voltage(V):   {random.randint(2, 4)}.{random.randint(0, 99):02d}
-RX Optical Power(dBm): -{random.randint(20, 30)}.{random.randint(0, 999):03d}  (OLT TX: {random.randint(2, 3)}.{random.randint(0, 999):03d})
-TX Optical Power(dBm):   {random.randint(2, 3)}.{random.randint(0, 999):03d}    (OLT RX: -{random.randint(20, 30)}.{random.randint(0, 999):03d})
-Laser Bias Current(mA):   {random.randint(12, 17)}.{random.randint(0, 999):03d}
-Temperature(C):   {random.randint(40, 60)}.{random.randint(0, 99):02d}
-CATV RX Power(dBm): -
-CATV Output Power(dBmV): -
+                info = f'''Power Feed Voltage(V)	: {random.randint(2, 4)}.{random.randint(0, 99):02d}
+RX Optical Power(dBm)	: -{random.randint(20, 30)}.{random.randint(0, 999):03d}  (OLT TX: {random.randint(2, 3)}.{random.randint(0, 999):03d})
+TX Optical Power(dBm)	: {random.randint(2, 3)}.{random.randint(0, 999):03d}    (OLT RX: -{random.randint(20, 30)}.{random.randint(0, 999):03d})
+Laser Bias Current(mA)	: {random.randint(12, 17)}.{random.randint(0, 999):03d}
+Temperature(C)			: {random.randint(40, 60)}.{random.randint(0, 99):02d}
+CATV RX Power(dBm)		: -
+CATV Output Power(dBmV)	: -
+'''
+                self.sendLine(info)
+                return
+        self.send_error('ONT not found')
+
+    def __info(self, cmds):
+        if not cmds or not re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', cmds[0]):
+            self.send_error(
+                'STRING<5-8>\tthe ONU port should be inputted with slot-num<0-0>/port-num<1-16>/ont-num<1-128>')
+            return
+
+        slot, pon, ont = cmds[0].split('/')
+
+        for onu in self.onus['slot'][slot]['pon'][pon]:
+            if onu['onu'] == int(ont) and onu['auth']:
+                info = f'''ONT							:   0/{pon}/{onu}
+Description					:   -
+TYPE						:   -
+Status						:   online
+Distance(m)					:   <10
+Vendor ID					:   TSMX
+Software Version			:   C01R04V00B10/C01R04V00B10
+Firmware Version			:   S40-100
+Equipment ID				:   AISONTV1
+SN							:   TSMX-1790032e
+Password					:   1234567890
+LOID						:   user
+LOID Password				:   password
+Uplink PON ports			:   1
+ETH/POTS/TDM/MOCA ports		:   1/0/0/0
+CATV ANI/UNI ports			:   0/0
+T-CONTs/GEM ports			:   8/32
+Traffic Schedulers			:   8
+PQs in T-CONT 1-8			:   1/1/1/4/4/4/8/8
+IP configuration			:   not support
+Type of flow control		:   GEMPORT CAR and PQ SCHEDULED
+TX power cut off			:   Not Support
+Online/Offline time			:   {self.__new_date().split()[1]}   {self.__new_date().split()[0]}
+Up/Down time				:   0 day(s)  0 hour(s)  0 minute(s)
 '''
                 self.sendLine(info)
                 return
@@ -158,12 +205,15 @@ CATV Output Power(dBmV): -
 
     def __ont(self, cmds):
         '''show ont brief interface gpon'''
-        if not len(cmds) > 1 or cmds[1] not in ['brief', 'optical-info']:
+        if not len(cmds) > 1 or cmds[1] not in ['brief', 'optical-info', 'info']:
             self.send_error('brief         brief')
             self.send_error('optical-info  optical-info')
+            self.send_error('info          info')
         else:
             if cmds[1] == 'optical-info':
                 return self.__optical_info(cmds[2:])
+            if cmds[1] == 'info':
+                return self.__info(cmds[2:])
             if not len(cmds) > 2 or cmds[2] not in ['interface', 'sn']:
                 self.send_error('interface    interface')
                 self.send_error('sn           sn')
@@ -273,81 +323,101 @@ CATV Output Power(dBmV): -
 
     def __deploy_profile_rule(self):
         try:
-            data = self.request(self.__name)
-            aimmed = []
-            aimmedonu = None
-            while self.running:
-                try:
-                    if isinstance(data, bytes):
-                        data = data.decode()
-                    data = data.strip()
-                    if data == 'exit':
-                        if self.places and self.places[-1] == 'deploy-profile-rule':
+            def handle(data, context, setcontext):
+                if isinstance(data, bytes):
+                    data = data.decode()
+                data = data.strip()
+                if data == 'exit':
+                    if self.places and self.places[-1] == 'deploy-profile-rule':
+                        self.places.pop()
+                        raise Break()
+                    elif not self.places[-1].startswith('deploy-profile-rule'):
+                        raise Break()
+                    else:
+                        self.places.pop()
+                        setcontext('aimmed', [])
+                        setcontext('serial', None)
+                args = data.split()
+                if args[0] == 'show':
+                    self.show(data)
+                elif not context['aimmed'] and args[0] == 'delete' and args[1] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[2]):
+                    slot, pon, ont = args[2].split('/')
+                    found = False
+                    for onu in ONUS['slot'][slot]['pon'][pon]:
+                        if onu['onu'] == int(ont) and onu['auth']:
+                            confirm = self.request("Are you sure to delete the ONT {}? ".format(onu['id']))
+                            if isinstance(confirm, bytes):
+                                confirm = confirm.decode()
+                            confirm = confirm.strip()
+                            if confirm and confirm == 'y':
+                                onu['auth'] = False
+                                self.sendLine(f'ONT {args[2]} deleted')
+                            found = True
                             break
-                        elif not self.places[-1].startswith('deploy-profile-rule'):
-                            break;
-                        else:
-                            aimmed = []
-                            self.places.pop()
-                    args = data.split()
-                    if args[0] == 'show':
-                        self.show(data)
-                    elif not aimmed and args[0] == 'delete' and args[1] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[2]):
-                        slot, pon, ont = args[2].split('/')
+                    if not found:
+                        self.send_error(f'ONT not found')
+                            
+                elif args[0] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[1]):
+                    setcontext('aimmed', args[1].split('/'))
+                    self.places.append(f"deploy-profile-rule-{'-'.join(context['aimmed'])}")
+                elif context["aimmed"] and (context['serial'] and data == 'active'):
+                    slot, pon, ont = context["aimmed"]
+                    try:
+                        list(filter(lambda x: x['auth'] and x['onu'] == int(
+                            ont), ONUS['slot'][slot]['pon'][pon]))[0]
+                        self.send_error(f'ONU already activated')
+                    except:
                         found = False
                         for onu in ONUS['slot'][slot]['pon'][pon]:
-                            if onu['onu'] == int(ont) and onu['auth']:
-                                confirm = self.request("Are you sure to delete the ONT {}? ".format(onu['id']))
-                                if isinstance(confirm, bytes):
-                                    confirm = confirm.decode()
-                                confirm = confirm.strip()
-                                if confirm and confirm == 'y':
-                                    onu['auth'] = False
-                                    self.sendLine(f'ONT {args[2]} deleted')
+                            if onu['id'] == context['serial'] and not onu['auth']:
+                                onu['onu'] = int(ont)
+                                onu['auth'] = True
+                                self.sendLine(f'ONT {context["aimmed"]} activated')
                                 found = True
                                 break
                         if not found:
                             self.send_error(f'ONT not found')
-                                
-                    elif args[0] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[1]):
-                        aimmed = args[1].split('/')
-                        self.places.append(f"deploy-profile-rule-{'-'.join(aimmed)}")
-                    elif aimmed and (aimmedonu and data == 'active'):
-                        slot, pon, ont = aimmed
-                        try:
-                            list(filter(lambda x: x['auth'] and x['onu'] == int(
-                                ont), ONUS['slot'][slot]['pon'][pon]))[0]
+                elif context["aimmed"] and re.match(r'^permit sn string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
+                    slot,pon,onu = context["aimmed"]
+                    serial = data.strip().split()[3]
+                    try:
+                        _onu = list(filter(lambda x: x['auth'] and (x['onu'] == int(
+                            onu) or x['id'] == serial), ONUS['slot'][slot]['pon'][pon]))[0]
+                        if _onu['id'] == serial:
                             self.send_error(f'ONU already activated')
-                        except:
-                            found = False
-                            for onu in ONUS['slot'][slot]['pon'][pon]:
-                                if onu['id'] == aimmedonu and not onu['auth']:
-                                    onu['onu'] = int(ont)
-                                    onu['auth'] = True
-                                    self.sendLine(f'ONT {aimmed} activated')
-                                    found = True
-                                    break
-                            if not found:
-                                self.send_error(f'ONT not found')
-                    elif aimmed and re.match(r'^permit sn string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
-                        slot,pon,onu = aimmed
-                        serial = data.strip().split()[3]
-                        try:
-                            _onu = list(filter(lambda x: x['auth'] and (x['onu'] == int(
-                                onu) or x['id'] == serial), ONUS['slot'][slot]['pon'][pon]))[0]
-                            if _onu['id'] == serial:
-                                self.send_error(f'ONU already activated')
-                            self.send_error(f'Index already used')
-                        except:
-                            aimmedonu = serial
-                    else:
-                        if args:
-                            self.send_error(f'Comando não encontrado: {data}')
-                except Exception as e:
-                    traceback.print_exc()
-                    self.send_error(str(e))
-                finally:
+                        self.send_error(f'Index already used')
+                    except:
+                        setcontext('serial', serial)
+                else:
+                    print(context)
+                    if args:
+                        self.send_error(f'Comando não encontrado: {data}')
+
+            data = self.request(self.__name)
+            context = {
+                'aimmed': [],
+                'serial': None
+            }
+
+            def setcontext(ctx, value):
+                context[ctx] = value
+
+            while self.running:
+                do_exit = False
+                for d in re.split(r'\r?\n|\n|\r', data.strip()):
+                    try:
+                        handle(d, context, setcontext)
+                    except Break:
+                        do_exit = True
+                        break
+                    except Exception as e:
+                        traceback.print_exc()
+                        self.send_error(str(e))
+                if do_exit:
+                    break
+                else:
                     data = self.request(self.__name)
+
         except Exception as e:
             traceback.print_exc()
             self.send_error(str(e))

@@ -33,6 +33,8 @@ class Emulador(Thread):
 
     def receve_data(self):
         data = self.connection.recv(2048).decode(errors='ignore')
+        for d in re.split(r'\r?\n|\n|\r', data.strip()):
+            print('Received:', d)
         return data
 
     def close(self):
