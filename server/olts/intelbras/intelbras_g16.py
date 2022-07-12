@@ -39,7 +39,7 @@ for i in range(1, 17):
         else:
             unauth += 1
         onu = {
-            'id': f'TSMX-{2:0>2x}{random.randint(2570, 65535):4x}{1:0>2x}',
+            'id': f'TSMX-{2:0>2x}{random.randint(2570, 65535):0>4x}{1:0>2x}',
             'auth': auth,
             'onu': authed if auth else unauth,
             'type': random.choice(['110Gb', 'R1v2']),
