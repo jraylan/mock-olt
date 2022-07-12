@@ -156,8 +156,8 @@ class Manager(Emulador):
 RX Optical Power(dBm)	: -{random.randint(20, 30)}.{random.randint(0, 999):03d}  (OLT TX: {random.randint(2, 3)}.{random.randint(0, 999):03d})
 TX Optical Power(dBm)	: {random.randint(2, 3)}.{random.randint(0, 999):03d}    (OLT RX: -{random.randint(20, 30)}.{random.randint(0, 999):03d})
 Laser Bias Current(mA)	: {random.randint(12, 17)}.{random.randint(0, 999):03d}
-Temperature(C)			: {random.randint(40, 60)}.{random.randint(0, 99):02d}
-CATV RX Power(dBm)		: -
+Temperature(C)		: {random.randint(40, 60)}.{random.randint(0, 99):02d}
+CATV RX Power(dBm)	: -
 CATV Output Power(dBmV)	: -
 '''
                 self.sendLine(info)
@@ -174,27 +174,27 @@ CATV Output Power(dBmV)	: -
 
         for onu in self.onus['slot'][slot]['pon'][pon]:
             if onu['onu'] == int(ont) and onu['auth']:
-                info = f'''ONT							:   0/{pon}/{onu}
-Description					:   -
-TYPE						:   -
-Status						:   online
-Distance(m)					:   <10
-Vendor ID					:   TSMX
+                info = f'''ONT					:   0/{pon}/{onu}
+Description				:   -
+TYPE					:   -
+Status					:   online
+Distance(m)				:   <10
+Vendor ID				:   TSMX
 Software Version			:   C01R04V00B10/C01R04V00B10
 Firmware Version			:   S40-100
 Equipment ID				:   AISONTV1
-SN							:   TSMX-1790032e
-Password					:   1234567890
-LOID						:   user
+SN					:   TSMX-1790032e
+Password				:   1234567890
+LOID					:   user
 LOID Password				:   password
 Uplink PON ports			:   1
-ETH/POTS/TDM/MOCA ports		:   1/0/0/0
+ETH/POTS/TDM/MOCA ports			:   1/0/0/0
 CATV ANI/UNI ports			:   0/0
 T-CONTs/GEM ports			:   8/32
 Traffic Schedulers			:   8
 PQs in T-CONT 1-8			:   1/1/1/4/4/4/8/8
 IP configuration			:   not support
-Type of flow control		:   GEMPORT CAR and PQ SCHEDULED
+Type of flow control			:   GEMPORT CAR and PQ SCHEDULED
 TX power cut off			:   Not Support
 Online/Offline time			:   {self.__new_date().split()[1]}   {self.__new_date().split()[0]}
 Up/Down time				:   0 day(s)  0 hour(s)  0 minute(s)
