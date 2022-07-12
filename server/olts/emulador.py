@@ -20,7 +20,9 @@ class Emulador(Thread):
 
     def send(self, message):
         if isinstance(message, str):
-            message = message.encode()
+            message = message.expandtabs().encode()
+        else:
+            message = message.decode().expandtabs().encode()
         self.connection.send(message)
         print(f'sent: {message}')
 
