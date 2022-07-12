@@ -281,7 +281,7 @@ CATV Output Power(dBmV): -
 
     def __deploy_profile_rule(self):
         try:
-            def handle(data, aimmed, aimmedonu, set_aimmed, set_aimmedonu):
+            def handle(data, context, setcontext):
                 if isinstance(data, bytes):
                     data = data.decode()
                 data = data.strip()
@@ -293,11 +293,12 @@ CATV Output Power(dBmV): -
                         raise Break()
                     else:
                         self.places.pop()
-                        raise Clear()
+                        setcontext('aimmed', [])
+                        setcontext('serial', None)
                 args = data.split()
                 if args[0] == 'show':
                     self.show(data)
-                elif not aimmed and args[0] == 'delete' and args[1] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[2]):
+                elif not context['aimmed'] and args[0] == 'delete' and args[1] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[2]):
                     slot, pon, ont = args[2].split('/')
                     found = False
                     for onu in ONUS['slot'][slot]['pon'][pon]:
@@ -315,10 +316,10 @@ CATV Output Power(dBmV): -
                         self.send_error(f'ONT not found')
                             
                 elif args[0] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[1]):
-                    set_aimmed(args[1].split('/'))                    
-                    self.places.append(f"deploy-profile-rule-{'-'.join(aimmed)}")
-                elif aimmed and (aimmedonu and data == 'active'):
-                    slot, pon, ont = aimmed
+                    setcontext('', args[1].split('/'))
+                    self.places.append(f"deploy-profile-rule-{'-'.join(context['aimmed'])}")
+                elif context["aimmed"] and (context['serial'] and data == 'active'):
+                    slot, pon, ont = context["aimmed"]
                     try:
                         list(filter(lambda x: x['auth'] and x['onu'] == int(
                             ont), ONUS['slot'][slot]['pon'][pon]))[0]
@@ -326,16 +327,16 @@ CATV Output Power(dBmV): -
                     except:
                         found = False
                         for onu in ONUS['slot'][slot]['pon'][pon]:
-                            if onu['id'] == aimmedonu and not onu['auth']:
+                            if onu['id'] == context['serial'] and not onu['auth']:
                                 onu['onu'] = int(ont)
                                 onu['auth'] = True
-                                self.sendLine(f'ONT {aimmed} activated')
+                                self.sendLine(f'ONT {context["aimmed"]} activated')
                                 found = True
                                 break
                         if not found:
                             self.send_error(f'ONT not found')
-                elif aimmed and re.match(r'^permit sn string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
-                    slot,pon,onu = aimmed
+                elif context["aimmed"] and re.match(r'^permit sn string-hex TSMX-([0-9a-fA-F]){8} line \d+ default line \d+$', ' '.join(args)):
+                    slot,pon,onu = context["aimmed"]
                     serial = data.strip().split()[3]
                     try:
                         _onu = list(filter(lambda x: x['auth'] and (x['onu'] == int(
@@ -344,35 +345,29 @@ CATV Output Power(dBmV): -
                             self.send_error(f'ONU already activated')
                         self.send_error(f'Index already used')
                     except:
-                        set_aimmedonu(serial)
+                        setcontext('serial', serial)
                 else:
-                    print(aimmed, aimmedonu)
+                    print(context)
                     if args:
                         self.send_error(f'Comando não encontrado: {data}')
 
             data = self.request(self.__name)
-            aimmed = []
-            aimmedonu = None
+            context = {
+                'aimmed': [],
+                'serial': None
+            }
 
-            def set_aimmed(val):
-                global aimmed
-                aimmed = val
-
-            def set_aimmedonu(val):
-                global aimmedonu
-                aimmedonu = val
+            def setcontext(ctx, value):
+                context[ctx] = value
 
             while self.running:
                 do_exit = False
                 for d in re.split(r'\r?\n|\n|\r', data.strip()):
                     try:
-                        handle(d, aimmed, aimmedonu, set_aimmed, set_aimmedonu)
+                        handle(d, context, setcontext)
                     except Break:
                         do_exit = True
                         break
-                    except Clear as e:
-                        aimmed = []
-                        aimmedonu = None
                     except Exception as e:
                         traceback.print_exc()
                         self.send_error(str(e))
