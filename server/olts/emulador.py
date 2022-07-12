@@ -1,5 +1,6 @@
 
 import socket
+import re
 from threading import Thread
 
 
@@ -52,9 +53,8 @@ class Emulador(Thread):
                 if not logged_in:
                     logged_in = self.__login__()
                 if logged_in:
-                    for d in self.receve_data().split('\n'):
+                    for d in re.split(r'\r?\n|\n|\r', self.receve_data().strip()):
                         self.receive(d.strip())
-
             except BlockingIOError:
                 pass
             except ExitClient:
