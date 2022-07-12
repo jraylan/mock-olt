@@ -164,14 +164,56 @@ CATV Output Power(dBmV): -
                 return
         self.send_error('ONT not found')
 
+    def __info(self, cmds):
+        if not cmds or not re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', cmds[0]):
+            self.send_error(
+                'STRING<5-8>\tthe ONU port should be inputted with slot-num<0-0>/port-num<1-16>/ont-num<1-128>')
+            return
+
+        slot, pon, ont = cmds[0].split('/')
+
+        for onu in self.onus['slot'][slot]['pon'][pon]:
+            if onu['onu'] == int(ont) and onu['auth']:
+                info = f'''ONT				        	:   0/{pon}/{onu}
+Description				    :   -
+TYPE					    :   -
+Status					    :   online
+Distance(m)				    :   <10
+Vendor ID				    :   TSMX
+Software Version		    :   C01R04V00B10/C01R04V00B10
+Firmware Version		    :   S40-100
+Equipment ID			    :   AISONTV1
+SN				    	    :   TSMX-1790032e
+Password				    :   1234567890
+LOID					    :   user
+LOID Password			    :   password
+Uplink PON ports		    :   1
+ETH/POTS/TDM/MOCA ports	    :   1/0/0/0
+CATV ANI/UNI ports		    :   0/0
+T-CONTs/GEM ports		    :   8/32
+Traffic Schedulers		    :   8
+PQs in T-CONT 1-8		    :   1/1/1/4/4/4/8/8
+IP configuration		    :   not support
+Type of flow control	    :   GEMPORT CAR and PQ SCHEDULED
+TX power cut off		    :   Not Support
+Online/Offline time		    :   {self.__new_date().split()[1]}   {self.__new_date().split()[0]}
+Up/Down time			    :   0 day(s)  0 hour(s)  0 minute(s)
+'''
+                self.sendLine(info)
+                return
+        self.send_error('ONT not found')
+
     def __ont(self, cmds):
         '''show ont brief interface gpon'''
-        if not len(cmds) > 1 or cmds[1] not in ['brief', 'optical-info']:
+        if not len(cmds) > 1 or cmds[1] not in ['brief', 'optical-info', 'info']:
             self.send_error('brief         brief')
             self.send_error('optical-info  optical-info')
+            self.send_error('info          info')
         else:
             if cmds[1] == 'optical-info':
                 return self.__optical_info(cmds[2:])
+            if cmds[1] == 'info':
+                return self.__info(cmds[2:])
             if not len(cmds) > 2 or cmds[2] not in ['interface', 'sn']:
                 self.send_error('interface    interface')
                 self.send_error('sn           sn')
