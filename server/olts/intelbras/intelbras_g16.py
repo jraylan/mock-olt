@@ -3,8 +3,12 @@ import random
 import traceback
 from olts.emulador import Emulador, ExitClient
 import re
+from utils.persistent_dict import PersistentDict
 
-ONUS = {
+
+ONUS = {}
+
+ONU_TEMPLATE = {
     'slot': {
         '0': {
             'pon': {
@@ -29,23 +33,38 @@ ONUS = {
     }
 }
 
-unauth = 0
-for i in range(1, 17):
-    authed = 0
-    for j in range(1, 5):
-        auth = random.choice([False, True])
-        if auth:
-            authed += 1
-        else:
-            unauth += 1
-        onu = {
-            'id': f'TSMX-{2:0>2x}{random.randint(2570, 65535):0>4x}{1:0>2x}',
-            'auth': auth,
-            'onu': authed if auth else unauth,
-            'type': random.choice(['110Gb', 'R1v2']),
-            'name': 'VLAN-1000' if auth else ''
-        }
-        ONUS['slot']['0']['pon'][str(i)].append(onu)
+def start_for_client(client):
+    ONUS[client] = PersistentDict('intelbras_g16_{}.data'.format(client))
+    if not ONUS[client]:
+        ONUS[client].update(ONU_TEMPLATE)
+
+        unauth = 0
+        for i in range(1, 17):
+            authed = 0
+            for j in range(1, 5):
+                auth = random.choice([False, True])
+                if auth:
+                    authed += 1
+                else:
+                    unauth += 1
+                onu = {
+                    'id': f'TSMX-{2:0>2x}{random.randint(2570, 65535):0>4x}{1:0>2x}',
+                    'auth': auth,
+                    'onu': authed if auth else unauth,
+                    'type': random.choice(['110Gb', 'R1v2']),
+                    'name': 'VLAN-1000' if auth else ''
+                }
+                ONUS[client]['slot']['0']['pon'][str(i)].append(onu)
+    ONUS[client].save()
+    print(ONUS[client])
+    return ONUS[client]
+
+def get_for_client(client):
+    try:
+        print(ONUS[client])
+        return ONUS[client]
+    except:
+        return start_for_client(client)
 
 
 class Break(Exception):
@@ -71,7 +90,7 @@ class Manager(Emulador):
 
     @property
     def onus(self):
-        return ONUS
+        return get_for_client(self.login)
 
     @property
     def __name(self):
@@ -99,6 +118,9 @@ class Manager(Emulador):
     
     def __new_date(self):
         return datetime.now().strftime('%Y/%m/%d %H:%M:%S')
+
+    def __save(self):
+        self.onus.save()
 
 
     def __ont_find(self, cmds):
@@ -343,7 +365,7 @@ Up/Down time				:   0 day(s)  0 hour(s)  0 minute(s)
                 elif not context['aimmed'] and args[0] == 'delete' and args[1] == 'aim' and re.match(r'^(0\/(1[0-6]|[1-9])\/(1[0-1][0-9]|12[0-8]|[0-9]{1,2}))$', args[2]):
                     slot, pon, ont = args[2].split('/')
                     found = False
-                    for onu in ONUS['slot'][slot]['pon'][pon]:
+                    for onu in self.onus['slot'][slot]['pon'][pon]:
                         if onu['onu'] == int(ont) and onu['auth']:
                             confirm = self.request("Are you sure to delete the ONT {}? ".format(onu['id']))
                             if isinstance(confirm, bytes):
@@ -364,11 +386,11 @@ Up/Down time				:   0 day(s)  0 hour(s)  0 minute(s)
                     slot, pon, ont = context["aimmed"]
                     try:
                         list(filter(lambda x: x['auth'] and x['onu'] == int(
-                            ont), ONUS['slot'][slot]['pon'][pon]))[0]
+                            ont), self.onus['slot'][slot]['pon'][pon]))[0]
                         self.send_error(f'ONU already activated')
                     except:
                         found = False
-                        for onu in ONUS['slot'][slot]['pon'][pon]:
+                        for onu in self.onus['slot'][slot]['pon'][pon]:
                             if onu['id'] == context['serial'] and not onu['auth']:
                                 onu['onu'] = int(ont)
                                 onu['auth'] = True
@@ -382,7 +404,7 @@ Up/Down time				:   0 day(s)  0 hour(s)  0 minute(s)
                     serial = data.strip().split()[3]
                     try:
                         _onu = list(filter(lambda x: x['auth'] and (x['onu'] == int(
-                            onu) or x['id'] == serial), ONUS['slot'][slot]['pon'][pon]))[0]
+                            onu) or x['id'] == serial), self.onus['slot'][slot]['pon'][pon]))[0]
                         if _onu['id'] == serial:
                             self.send_error(f'ONU already activated')
                         self.send_error(f'Index already used')
@@ -443,7 +465,12 @@ Up/Down time				:   0 day(s)  0 hour(s)  0 minute(s)
         data = (data or '').strip()
 
         try:
-            if data == 'exit':
+            if data == 'copy running-config startup-config':
+                if self.request('Copy running-config startup-config? [no]').strip() == 'y':
+                    self.__save()
+                    self.sendLine(
+                        'Copy running-config startup-config successfully')
+            elif data == 'exit':
                 if self.places:
                     self.places.pop()
                 elif self.__enabled:

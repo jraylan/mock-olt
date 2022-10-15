@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import threading
 from olts.intelbras.intelbras_g16 import Manager
 import socket
 from io import BlockingIOError
@@ -16,24 +17,31 @@ server.listen(5)
 
 connections = []
 
-
 interrupt_read, interrupt_write = socket.socketpair()
 
-def close_all(signum, frame):
-    for connection in connections:
-        connection.close()
-        interrupt_write.send(b'\0')
-        interrupt_read.close()
 
-    server.close()
-    os._exit(0)
+def close_all(event):
+    def wrap(signum, frame):
+        event.set()
+        try:
+            server.shutdown(socket.SHUT_RDWR)
+        except:
+            pass
+        for connection in connections:
+            connection.close()
+            interrupt_write.send(b'\0')
+            interrupt_read.close()
+
+        server.close()
+        os._exit(0)
+    return wrap
 
 if __name__ == '__main__':
-
-    signal.signal(signal.SIGHUP, close_all)
-    #signal.signal(signal.SIGKILL, close_all)
-    signal.signal(signal.SIGINT, close_all)
-    while True:
+    event = threading.Event()
+    signal.signal(signal.SIGHUP, close_all(event))
+    #signal.signal(signal.SIGKILL, close_all(event))
+    signal.signal(signal.SIGINT, close_all(event))
+    while not event.is_set():
         try:
             connection, address = server.accept()
             emulador = Manager(connection, address)
@@ -41,3 +49,6 @@ if __name__ == '__main__':
             connections.append(emulador)
         except BlockingIOError:
             pass
+        except OSError as e:
+            if not event.is_set():
+                raise e
