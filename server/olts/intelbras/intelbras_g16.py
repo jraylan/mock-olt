@@ -34,7 +34,7 @@ ONU_TEMPLATE = {
 }
 
 def start_for_client(client):
-    ONUS[client] = PersistentDict('intelbras_g16_{}.data'.format(client))
+    ONUS[client] = PersistentDict('intelbras_g16_{}'.format(client))
     if not ONUS[client]:
         ONUS[client].update(ONU_TEMPLATE)
 

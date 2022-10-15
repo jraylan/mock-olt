@@ -1,10 +1,13 @@
 import pickle
-
+import re
 
 class PersistentDict(dict):
 
     def __init__(self, filename, *args, **kwargs):
-        self.filename = filename
+        self.filename = re.sub(r'[^a-zA-Z0-9]', '', filename)
+        if not self.filename:
+            self.filename = '__empty__'            
+        self.filename += '.data'
         try:
             with open(filename, 'rb') as f:
                 self.update(pickle.load(f))
